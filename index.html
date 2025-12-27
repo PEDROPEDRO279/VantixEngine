@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>VantixEngine v5.2 - Ultimate Edition</title>
+    <style>
+        :root { --accent: #4CAF50; --bg: #121212; --panel: #1e1e1e; --blue: #01579b; --purple: #6a1b9a; }
+        body { margin: 0; display: flex; flex-direction: column; height: 100vh; font-family: 'Segoe UI', sans-serif; background: var(--bg); color: #eee; overflow: hidden; }
+        #toolbar { height: 60px; background: #252525; display: flex; gap: 8px; align-items: center; padding: 0 15px; border-bottom: 2px solid #000; box-shadow: 0 4px 10px rgba(0,0,0,0.3); flex-wrap: nowrap; overflow-x: auto; }
+        #main { display: flex; flex: 1; overflow: hidden; }
+        #codeEditor { width: 45%; background: var(--panel); color: #9cdcfe; padding: 20px; font-family: 'Consolas', 'Monaco', monospace; border: none; border-right: 3px solid #333; resize: none; outline: none; font-size: 14px; line-height: 1.5; white-space: pre; }
+        #previewContainer { width: 55%; background: #fff; position: relative; display: flex; flex-direction: column; }
+        iframe { flex: 1; border: none; background: #fff; width: 100%; height: 100%; }
+        #console { height: 130px; background: #000; color: #0f0; padding: 10px; font-size: 12px; overflow-y: auto; border-top: 4px solid #333; font-family: 'Courier New', monospace; }
+        
+        button, select { background: #333; border: 1px solid #444; color: #fff; padding: 6px 10px; cursor: pointer; border-radius: 4px; font-size: 11px; transition: 0.2s; white-space: nowrap; }
+        button:hover { background: #444; border-color: var(--accent); }
+        .run-btn { background: #1b5e20; color: #fff; font-weight: bold; border: none; }
+        .run-btn:hover { background: #2e7d32; }
+        .export-btn { background: var(--blue); border: none; }
+        
+        #filePanel, #assetPanel, #drawPanel, #characterPanel, #exportPanel { position: absolute; top: 70px; left: 20px; width: 320px; background: #252525; border: 2px solid var(--accent); padding: 15px; display: none; z-index: 1000; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); max-height: 80vh; overflow-y: auto; }
+        .file-item, .char-item { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #333; align-items: center; gap: 5px; }
+        
+        #fpsCounter { position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.5); color: #0f0; padding: 2px 8px; border-radius: 4px; font-size: 10px; pointer-events: none; z-index: 10; }
+        .auto-run-label { font-size: 10px; display: flex; align-items: center; gap: 3px; color: #aaa; }
+        #saveIndicator { font-size: 10px; color: #888; transition: 0.3s; opacity: 0; min-width: 100px; }
+        
+        .asset-input { width: 100%; background: #111; border: 1px solid #444; color: #fff; margin-bottom: 5px; padding: 5px; font-size: 11px; box-sizing: border-box; }
+        #drawingCanvas { background: white; border: 1px solid #555; cursor: crosshair; touch-action: none; margin-bottom: 10px; width: 100%; height: auto; }
+        .draw-tools { display: flex; gap: 5px; margin-bottom: 10px; flex-wrap: wrap; }
+        .char-preview { width: 50px; height: 50px; background: #eee; border-radius: 4px; cursor: grab; object-fit: contain; }
+        .export-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    </style>
+</head>
+<body>
+
+<div id="toolbar">
+    <b style="color:var(--accent); font-size: 16px;">VANTIXENGINE 5.2</b>
+    <select id="langSelect" onchange="loadTemplate()">
+        <option value="html">HTML5 / Game Engine</option>
+        <option value="p5js">p5.js (Görsel Sanat)</option>
+        <option value="threejs">Three.js (3D Motor)</option>
+        <option value="canvas">Canvas API (Saf JS)</option>
+        <option value="python">Python (Brython)</option>
+    </select>
+    <button class="run-btn" onclick="runEngine()">ÇALIŞTIR</button>
+    <button id="pauseBtn" onclick="togglePause()">DURDUR</button>
+    <button onclick="saveToLibrary()">KAYDET</button>
+    <button onclick="toggleFilePanel()">DOSYALARIM</button>
+    <button onclick="toggleAssetPanel()">VARLIKLAR</button>
+    <button style="background: var(--purple);" onclick="toggleDrawPanel()">🎨 ÇİZ</button>
+    <button style="background: #ad1457;" onclick="toggleCharacterPanel()">🎭 KARAKTERLER</button>
+    
+    <div style="width: 2px; height: 20px; background: #444; margin: 0 5px;"></div>
+    
+    <button class="export-btn" onclick="toggleExportPanel()">DIŞA AKTAR</button>
+    <button onclick="takeScreenshot()">📸</button>
+    <button onclick="toggleFullScreen()">⛶</button>
+
+    <label class="auto-run-label">
+        <input type="checkbox" id="autoRunCheck"> Oto-Run
+    </label>
+    <div id="saveIndicator">Kaydedildi...</div>
+</div>
+
+<div id="exportPanel">
+    <h3 style="margin:0 0 10px 0; color:var(--accent);">DIŞA AKTAR</h3>
+    <div class="export-grid">
+        <button onclick="exportHTML()">STANDART HTML</button>
+        <button style="background:#4527a0" onclick="alert('Yakında!')">MOBILE APP</button>
+        <button style="background:#e65100" onclick="exportAsJSON()">BACKUP JSON</button>
+        <button style="background:#2e7d32" onclick="exportHTML()">FULL BUNDLE</button>
+    </div>
+    <button onclick="toggleExportPanel()" style="width:100%; margin-top:10px;">KAPAT</button>
+</div>
+
+<div id="drawPanel">
+    <h3 style="margin:0 0 10px 0; color:var(--accent);">KARAKTER TASARLA</h3>
+    <div class="draw-tools">
+        <input type="color" id="drawColor" value="#4CAF50">
+        <input type="range" id="brushSize" min="1" max="20" value="5">
+        <button onclick="clearCanvas()">Temizle</button>
+    </div>
+    <canvas id="drawingCanvas" width="280" height="200"></canvas>
+    <input type="text" id="charName" class="asset-input" placeholder="Karakter İsmi">
+    <button onclick="saveCharacter()" style="width:100%; background:var(--accent)">KAYDET</button>
+</div>
+
+<div id="characterPanel">
+    <h3 style="margin:0 0 10px 0; color:var(--accent);">KARAKTERLERİN</h3>
+    <div id="characterList"></div>
+    <button onclick="toggleCharacterPanel()" style="width:100%; margin-top:10px;">KAPAT</button>
+</div>
+
+<div id="assetPanel">
+    <h3 style="margin:0 0 10px 0; color:var(--accent);">VARLIKLAR</h3>
+    <input type="text" id="assetUrl" class="asset-input" placeholder="Resim URL'si">
+    <button onclick="addAsset()" style="width:100%;">EKLE</button>
+    <div id="assetList"></div>
+</div>
+
+<div id="filePanel">
+    <h3 style="margin:0 0 10px 0; color:var(--accent);">KAYITLI PROJELER</h3>
+    <div id="fileList"></div>
+    <button onclick="toggleFilePanel()" style="width:100%; margin-top:10px;">KAPAT</button>
+</div>
+
+<div id="main">
+    <textarea id="codeEditor" spellcheck="false" oninput="onEditorInput()"></textarea>
+    <div id="previewContainer" ondragover="event.preventDefault()" ondrop="dropCharacter(event)">
+        <iframe id="preview"></iframe>
+        <div id="fpsCounter">FPS: 0</div>
+        <div id="console">> VantixEngine Hazır.</div>
+    </div>
+</div>
+
+<script>
+    const editor = document.getElementById('codeEditor');
+    const preview = document.getElementById('preview');
+    const consoleBox = document.getElementById('console');
+    const dCanvas = document.getElementById('drawingCanvas');
+    const dCtx = dCanvas.getContext('2d');
+    
+    let drawing = false;
+    let autoRunTimeout;
+
+    // --- TAB TUŞU DESTEĞİ ---
+    editor.addEventListener('keydown', function(e) {
+        if (e.key === 'Tab') {
+            e.preventDefault();
+            const start = this.selectionStart;
+            this.value = this.value.substring(0, start) + "    " + this.value.substring(this.selectionEnd);
+            this.selectionStart = this.selectionEnd = start + 4;
+        }
+    });
+
+    // --- MOTORU ÇALIŞTIRMA ---
+    function runEngine() {
+        const lang = document.getElementById('langSelect').value;
+        const code = editor.value;
+        
+        consoleBox.innerHTML = "> Motor başlatılıyor...";
+        
+        const consoleScript = `
+            <script>
+                window.onerror = (m, u, l) => { window.parent.postMessage({type: 'error', msg: m + ' (Satır: ' + l + ')'}, '*'); };
+                console.log = (...args) => { 
+                    window.parent.postMessage({type: 'log', msg: args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ')}, '*'); 
+                };
+            <\/script>`;
+
+        let finalHTML = "";
+        const meta = '<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">';
+
+        if (lang === "html") {
+            finalHTML = meta + consoleScript + code;
+        } else if (lang === "p5js") {
+            finalHTML = `<html><head>${meta}${consoleScript}<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"><\/script></head><body><script>${code}<\/script></body></html>`;
+        } else if (lang === "threejs") {
+            finalHTML = `<html><head>${meta}${consoleScript}</head><body style="margin:0"><script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/script><script>${code}<\/script></body></html>`;
+        } else if (lang === "python") {
+            finalHTML = `<html><head>${meta}${consoleScript}<script src="https://cdnjs.cloudflare.com/ajax/libs/brython/3.10.5/brython.min.js"><\/script><script src="https://cdnjs.cloudflare.com/ajax/libs/brython/3.10.5/brython_stdlib.min.js"><\/script></head><body onload="brython()"><script type="text/python">${code}<\/script></body></html>`;
+        } else if (lang === "canvas") {
+            finalHTML = `<html><head>${meta}${consoleScript}</head><body style="margin:0; background:#000;"><canvas id="c"></canvas><script>const canvas=document.getElementById('c');const ctx=canvas.getContext('2d');canvas.width=window.innerWidth;canvas.height=window.innerHeight;${code}<\/script></body></html>`;
+        }
+
+        const frameDoc = preview.contentDocument || preview.contentWindow.document;
+        frameDoc.open();
+        frameDoc.write(finalHTML);
+        frameDoc.close();
+        
+        // Otomatik Taslak Kaydı
+        localStorage.setItem('vantix_last_draft', JSON.stringify({code, lang}));
+    }
+
+    window.addEventListener('message', (e) => {
+        if(e.data.type === 'log') logToConsole(e.data.msg, "info");
+        if(e.data.type === 'error') logToConsole(e.data.msg, "error");
+    });
+
+    function logToConsole(msg, type) {
+        const color = type === "error" ? "#ff5555" : "#0f0";
+        consoleBox.innerHTML += `<div style="color:${color}">> ${msg}</div>`;
+        consoleBox.scrollTop = consoleBox.scrollHeight;
+    }
+
+    function onEditorInput() {
+        if (document.getElementById('autoRunCheck').checked) {
+            clearTimeout(autoRunTimeout);
+            autoRunTimeout = setTimeout(runEngine, 1000);
+        }
+    }
+
+    function togglePause() {
+        const btn = document.getElementById('pauseBtn');
+        preview.style.pointerEvents = preview.style.pointerEvents === "none" ? "auto" : "none";
+        btn.innerText = preview.style.pointerEvents === "none" ? "DEVAM ET" : "DURDUR";
+    }
+
+    // --- Çizim ve Karakterler ---
+    dCanvas.onmousedown = (e) => { drawing = true; paint(e); };
+    window.onmouseup = () => { drawing = false; dCtx.beginPath(); };
+    dCanvas.onmousemove = (e) => { if (drawing) paint(e); };
+
+    function paint(e) {
+        const rect = dCanvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        dCtx.lineWidth = document.getElementById('brushSize').value;
+        dCtx.lineCap = 'round';
+        dCtx.strokeStyle = document.getElementById('drawColor').value;
+        dCtx.lineTo(x, y);
+        dCtx.stroke();
+        dCtx.beginPath();
+        dCtx.moveTo(x, y);
+    }
+
+    function clearCanvas() { dCtx.clearRect(0, 0, dCanvas.width, dCanvas.height); }
+
+    function saveCharacter() {
+        const name = document.getElementById('charName').value || 'char_' + Date.now();
+        const img = dCanvas.toDataURL();
+        const chars = JSON.parse(localStorage.getItem('vantix_chars') || '[]');
+        chars.push({id: Date.now(), name, img});
+        localStorage.setItem('vantix_chars', JSON.stringify(chars));
+        renderCharacters();
+        toggleDrawPanel();
+    }
+
+    function renderCharacters() {
+        const list = document.getElementById('characterList');
+        const chars = JSON.parse(localStorage.getItem('vantix_chars') || '[]');
+        list.innerHTML = chars.map(c => `
+            <div class="char-item">
+                <img src="${c.img}" class="char-preview" draggable="true" ondragstart="event.dataTransfer.setData('img','${c.img}')">
+                <span style="font-size:10px">${c.name}</span>
+                <button onclick="deleteChar(${c.id})">Sil</button>
+            </div>`).join('');
+    }
+
+    function deleteChar(id) {
+        let chars = JSON.parse(localStorage.getItem('vantix_chars') || '[]');
+        chars = chars.filter(c => c.id !== id);
+        localStorage.setItem('vantix_chars', JSON.stringify(chars));
+        renderCharacters();
+    }
+
+    function dropCharacter(e) {
+        e.preventDefault();
+        const img = e.dataTransfer.getData("img");
+        if(!img) return;
+        const rect = preview.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        editor.value += `\n<img src="${img}" style="position:absolute; left:${x}px; top:${y}px; width:80px;">\n`;
+        runEngine();
+    }
+
+    // --- Panel Kontrolleri ---
+    function toggleDisplay(id) {
+        const el = document.getElementById(id);
+        const panels = ['filePanel', 'assetPanel', 'drawPanel', 'characterPanel', 'exportPanel'];
+        panels.forEach(p => { if(p !== id) document.getElementById(p).style.display = 'none'; });
+        el.style.display = el.style.display === 'block' ? 'none' : 'block';
+    }
+    function toggleDrawPanel() { toggleDisplay('drawPanel'); }
+    function toggleCharacterPanel() { toggleDisplay('characterPanel'); renderCharacters(); }
+    function toggleAssetPanel() { toggleDisplay('assetPanel'); }
+    function toggleExportPanel() { toggleDisplay('exportPanel'); }
+    function toggleFilePanel() { toggleDisplay('filePanel'); renderFileList(); }
+
+    function addAsset() {
+        const url = document.getElementById('assetUrl').value;
+        if(!url) return;
+        const list = document.getElementById('assetList');
+        const div = document.createElement('div');
+        div.className = 'file-item';
+        div.innerHTML = `<span style="font-size:10px">${url.substring(0,20)}...</span> <button onclick="editor.value+='\\n<img src=\\'${url}\\'>\\n';runEngine()">Ekle</button>`;
+        list.appendChild(div);
+    }
+
+    function loadTemplate() {
+        const templates = {
+            html: `<h1>VantixEngine</h1>\n<p>Kodlamaya başlayın...</p>`,
+            p5js: `function setup() {\n  createCanvas(windowWidth, windowHeight);\n}\nfunction draw() {\n  background(220);\n  ellipse(mouseX, mouseY, 50, 50);\n}`,
+            threejs: `const scene = new THREE.Scene();\nconst cam = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight);\nconst renderer = new THREE.WebGLRenderer();\nrenderer.setSize(window.innerWidth, window.innerHeight);\ndocument.body.appendChild(renderer.domElement);\nconst box = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshBasicMaterial({color: 0x00ff00}));\nscene.add(box); cam.position.z = 5;\nfunction anim() { requestAnimationFrame(anim); box.rotation.y+=0.01; renderer.render(scene, cam); }\nanim();`,
+            python: `from browser import document, alert\n\ndef hello(ev):\n    alert("Merhaba VantixEngine!")\n\ndocument <= "Python burada çalışıyor!"\ndocument.select("body")[0].bind("click", hello)`,
+            canvas: `ctx.fillStyle = 'red';\nctx.fillRect(50, 50, 100, 100);`
+        };
+        editor.value = templates[document.getElementById('langSelect').value] || "";
+        runEngine();
+    }
+
+    // --- Dosya Sistemi ---
+    function saveToLibrary() {
+        const name = prompt("Proje Adı:");
+        if(!name) return;
+        const db = JSON.parse(localStorage.getItem('vantix_db') || '[]');
+        db.push({id: Date.now(), name, code: editor.value, lang: document.getElementById('langSelect').value});
+        localStorage.setItem('vantix_db', JSON.stringify(db));
+        showSaveIndicator();
+    }
+
+    function renderFileList() {
+        const list = document.getElementById('fileList');
+        const db = JSON.parse(localStorage.getItem('vantix_db') || '[]');
+        list.innerHTML = db.length ? db.map(f => `
+            <div class="file-item">
+                <span onclick="loadProject(${f.id})" style="cursor:pointer; font-size:11px;">📂 ${f.name}</span>
+                <button onclick="deleteProject(${f.id})" style="background:#b71c1c">X</button>
+            </div>`).join('') : "Kayıtlı proje yok.";
+    }
+
+    window.loadProject = (id) => {
+        const db = JSON.parse(localStorage.getItem('vantix_db') || '[]');
+        const project = db.find(p => p.id === id);
+        if(project) {
+            editor.value = project.code;
+            document.getElementById('langSelect').value = project.lang;
+            runEngine();
+            toggleFilePanel();
+        }
+    };
+
+    window.deleteProject = (id) => {
+        let db = JSON.parse(localStorage.getItem('vantix_db') || '[]');
+        db = db.filter(p => p.id !== id);
+        localStorage.setItem('vantix_db', JSON.stringify(db));
+        renderFileList();
+    };
+
+    function showSaveIndicator() {
+        const si = document.getElementById('saveIndicator');
+        si.style.opacity = 1;
+        setTimeout(() => si.style.opacity = 0, 2000);
+    }
+
+    // --- Yardımcı Araçlar ---
+    let lastFPS = performance.now(), frames = 0;
+    function updateFPS() {
+        frames++;
+        const now = performance.now();
+        if(now - lastFPS >= 1000) {
+            document.getElementById('fpsCounter').innerText = "FPS: " + frames;
+            frames = 0; lastFPS = now;
+        }
+        requestAnimationFrame(updateFPS);
+    }
+    updateFPS();
+
+    function exportHTML() {
+        const blob = new Blob([editor.value], {type: 'text/html'});
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'vantix_game.html';
+        a.click();
+    }
+
+    function exportAsJSON() {
+        const data = { db: localStorage.getItem('vantix_db'), chars: localStorage.getItem('vantix_chars') };
+        const blob = new Blob([JSON.stringify(data)], {type: 'application/json'});
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'vantix_backup.json';
+        a.click();
+    }
+
+    function toggleFullScreen() {
+        if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+        else document.exitFullscreen();
+    }
+
+    function takeScreenshot() {
+        alert("Ekran görüntüsü için önizleme alanına sağ tıklayıp 'Resmi farklı kaydet' diyebilirsiniz.");
+    }
+
+    window.onload = () => {
+        const last = localStorage.getItem('vantix_last_draft');
+        if(last) {
+            const data = JSON.parse(last);
+            editor.value = data.code;
+            document.getElementById('langSelect').value = data.lang;
+            runEngine();
+        } else {
+            loadTemplate();
+        }
+    };
+</script>
+</body>
+</html>
