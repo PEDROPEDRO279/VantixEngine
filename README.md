@@ -35,3 +35,4 @@ VantixEngine.html dosyasını tarayıcınızda açın.
 ÇALIŞTIR butonuna basın veya Oto-Run seçeneğini aktif edin.
 
 Karakter tasarlamak için 🎨 ÇİZ butonunu kullanın ve tasarımınızı sürükleyerek sahneye dahil edin.
+DİKKAT! VantixEngine test aşamasındadır 
