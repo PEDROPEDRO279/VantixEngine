@@ -19,7 +19,8 @@
         .run-btn:hover { background: #2e7d32; }
         .export-btn { background: var(--blue); border: none; }
         
-        #filePanel, #assetPanel, #drawPanel, #characterPanel, #exportPanel { position: absolute; top: 70px; left: 20px; width: 320px; background: #252525; border: 2px solid var(--accent); padding: 15px; display: none; z-index: 1000; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); max-height: 80vh; overflow-y: auto; }
+        #filePanel, #assetPanel, #drawPanel, #characterPanel, #exportPanel, #readmePanel { position: absolute; top: 70px; left: 20px; width: 320px; background: #252525; border: 2px solid var(--accent); padding: 15px; display: none; z-index: 1000; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); max-height: 80vh; overflow-y: auto; }
+        #readmePanel { width: 450px; color: #ddd; line-height: 1.5; }
         .file-item, .char-item { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #333; align-items: center; gap: 5px; }
         
         #fpsCounter { position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.5); color: #0f0; padding: 2px 8px; border-radius: 4px; font-size: 10px; pointer-events: none; z-index: 10; }
@@ -51,6 +52,7 @@
     <button onclick="toggleAssetPanel()">VARLIKLAR</button>
     <button style="background: var(--purple);" onclick="toggleDrawPanel()">🎨 ÇİZ</button>
     <button style="background: #ad1457;" onclick="toggleCharacterPanel()">🎭 KARAKTERLER</button>
+    <button style="background: #444;" onclick="toggleReadmePanel()">📖 REHBER</button>
     
     <div style="width: 2px; height: 20px; background: #444; margin: 0 5px;"></div>
     
@@ -62,6 +64,20 @@
         <input type="checkbox" id="autoRunCheck"> Oto-Run
     </label>
     <div id="saveIndicator">Kaydedildi...</div>
+</div>
+
+<div id="readmePanel">
+    <h3 style="margin:0 0 10px 0; color:var(--accent);">🚀 VantixEngine v5.2 - Ultimate Edition</h3>
+    <p style="font-size: 12px;">VantixEngine, tarayıcı üzerinden çalışan, kurulum gerektirmeyen ve modern web teknolojileri (HTML5, JS, Python) ile oyun/görsel sanat geliştirme hizmetleri kapsamında hepsi bir arada bir oyun geliştirme platformudur.</p>
+    <h4 style="color:var(--accent); margin: 10px 0 5px 0;">🛠️ Teknik Yetenekler</h4>
+    <ul style="font-size: 11px; padding-left: 20px;">
+        <li><b>🎮 Çoklu Motor:</b> Three.js, p5.js, Canvas API, Brython (Python).</li>
+        <li><b>🎨 Karakter Tasarımı:</b> Dahili panelde çiz ve sürükle-bırak ile ekle.</li>
+        <li><b>💾 Veri Yönetimi:</b> Yerel kütüphane ve varlık yönetimi.</li>
+    </ul>
+    <h4 style="color:var(--accent); margin: 10px 0 5px 0;">✨ Özellikler</h4>
+    <p style="font-size: 11px;">Oto-Run, Entegre Konsol, Dışa Aktarma (HTML/JSON) ve FPS Sayacı.</p>
+    <button onclick="toggleReadmePanel()" style="width:100%; margin-top:10px;">ANLADIM</button>
 </div>
 
 <div id="exportPanel">
@@ -170,7 +186,6 @@
         frameDoc.write(finalHTML);
         frameDoc.close();
         
-        // Otomatik Taslak Kaydı
         localStorage.setItem('vantix_last_draft', JSON.stringify({code, lang}));
     }
 
@@ -198,7 +213,6 @@
         btn.innerText = preview.style.pointerEvents === "none" ? "DEVAM ET" : "DURDUR";
     }
 
-    // --- Çizim ve Karakterler ---
     dCanvas.onmousedown = (e) => { drawing = true; paint(e); };
     window.onmouseup = () => { drawing = false; dCtx.beginPath(); };
     dCanvas.onmousemove = (e) => { if (drawing) paint(e); };
@@ -257,10 +271,9 @@
         runEngine();
     }
 
-    // --- Panel Kontrolleri ---
     function toggleDisplay(id) {
         const el = document.getElementById(id);
-        const panels = ['filePanel', 'assetPanel', 'drawPanel', 'characterPanel', 'exportPanel'];
+        const panels = ['filePanel', 'assetPanel', 'drawPanel', 'characterPanel', 'exportPanel', 'readmePanel'];
         panels.forEach(p => { if(p !== id) document.getElementById(p).style.display = 'none'; });
         el.style.display = el.style.display === 'block' ? 'none' : 'block';
     }
@@ -269,6 +282,7 @@
     function toggleAssetPanel() { toggleDisplay('assetPanel'); }
     function toggleExportPanel() { toggleDisplay('exportPanel'); }
     function toggleFilePanel() { toggleDisplay('filePanel'); renderFileList(); }
+    function toggleReadmePanel() { toggleDisplay('readmePanel'); }
 
     function addAsset() {
         const url = document.getElementById('assetUrl').value;
@@ -292,7 +306,6 @@
         runEngine();
     }
 
-    // --- Dosya Sistemi ---
     function saveToLibrary() {
         const name = prompt("Proje Adı:");
         if(!name) return;
@@ -336,7 +349,6 @@
         setTimeout(() => si.style.opacity = 0, 2000);
     }
 
-    // --- Yardımcı Araçlar ---
     let lastFPS = performance.now(), frames = 0;
     function updateFPS() {
         frames++;
