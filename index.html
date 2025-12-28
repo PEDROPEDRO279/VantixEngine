@@ -17,10 +17,10 @@
         button:hover { background: #444; border-color: var(--accent); }
         .run-btn { background: #1b5e20; color: #fff; font-weight: bold; border: none; }
         .run-btn:hover { background: #2e7d32; }
+        .refresh-btn { background: #e65100; color: #fff; border: none; }
         .export-btn { background: var(--blue); border: none; }
         
-        #filePanel, #assetPanel, #drawPanel, #characterPanel, #exportPanel, #readmePanel { position: absolute; top: 70px; left: 20px; width: 320px; background: #252525; border: 2px solid var(--accent); padding: 15px; display: none; z-index: 1000; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); max-height: 80vh; overflow-y: auto; }
-        #readmePanel { width: 450px; color: #ddd; line-height: 1.5; }
+        #filePanel, #assetPanel, #drawPanel, #characterPanel, #exportPanel { position: absolute; top: 70px; left: 20px; width: 320px; background: #252525; border: 2px solid var(--accent); padding: 15px; display: none; z-index: 1000; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); max-height: 80vh; overflow-y: auto; }
         .file-item, .char-item { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #333; align-items: center; gap: 5px; }
         
         #fpsCounter { position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.5); color: #0f0; padding: 2px 8px; border-radius: 4px; font-size: 10px; pointer-events: none; z-index: 10; }
@@ -32,6 +32,8 @@
         .draw-tools { display: flex; gap: 5px; margin-bottom: 10px; flex-wrap: wrap; }
         .char-preview { width: 50px; height: 50px; background: #eee; border-radius: 4px; cursor: grab; object-fit: contain; }
         .export-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        
+        #pauseOverlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; color: white; z-index: 5; font-size: 24px; pointer-events: none; }
     </style>
 </head>
 <body>
@@ -46,13 +48,13 @@
         <option value="python">Python (Brython)</option>
     </select>
     <button class="run-btn" onclick="runEngine()">ÇALIŞTIR</button>
+    <button class="refresh-btn" onclick="refreshEngine()">YENİLE</button>
     <button id="pauseBtn" onclick="togglePause()">DURDUR</button>
     <button onclick="saveToLibrary()">KAYDET</button>
     <button onclick="toggleFilePanel()">DOSYALARIM</button>
     <button onclick="toggleAssetPanel()">VARLIKLAR</button>
     <button style="background: var(--purple);" onclick="toggleDrawPanel()">🎨 ÇİZ</button>
     <button style="background: #ad1457;" onclick="toggleCharacterPanel()">🎭 KARAKTERLER</button>
-    <button style="background: #444;" onclick="toggleReadmePanel()">📖 REHBER</button>
     
     <div style="width: 2px; height: 20px; background: #444; margin: 0 5px;"></div>
     
@@ -66,25 +68,11 @@
     <div id="saveIndicator">Kaydedildi...</div>
 </div>
 
-<div id="readmePanel">
-    <h3 style="margin:0 0 10px 0; color:var(--accent);">🚀 VantixEngine v5.2 - Ultimate Edition</h3>
-    <p style="font-size: 12px;">VantixEngine, tarayıcı üzerinden çalışan, kurulum gerektirmeyen ve modern web teknolojileri (HTML5, JS, Python) ile oyun/görsel sanat geliştirme hizmetleri kapsamında hepsi bir arada bir oyun geliştirme platformudur.</p>
-    <h4 style="color:var(--accent); margin: 10px 0 5px 0;">🛠️ Teknik Yetenekler</h4>
-    <ul style="font-size: 11px; padding-left: 20px;">
-        <li><b>🎮 Çoklu Motor:</b> Three.js, p5.js, Canvas API, Brython (Python).</li>
-        <li><b>🎨 Karakter Tasarımı:</b> Dahili panelde çiz ve sürükle-bırak ile ekle.</li>
-        <li><b>💾 Veri Yönetimi:</b> Yerel kütüphane ve varlık yönetimi.</li>
-    </ul>
-    <h4 style="color:var(--accent); margin: 10px 0 5px 0;">✨ Özellikler</h4>
-    <p style="font-size: 11px;">Oto-Run, Entegre Konsol, Dışa Aktarma (HTML/JSON) ve FPS Sayacı.</p>
-    <button onclick="toggleReadmePanel()" style="width:100%; margin-top:10px;">ANLADIM</button>
-</div>
-
 <div id="exportPanel">
     <h3 style="margin:0 0 10px 0; color:var(--accent);">DIŞA AKTAR</h3>
     <div class="export-grid">
         <button onclick="exportHTML()">STANDART HTML</button>
-        <button style="background:#4527a0" onclick="alert('Yakında!')">MOBILE APP</button>
+        <button style="background:#4527a0" onclick="exportHTML()">MOBILE APP (WEB)</button>
         <button style="background:#e65100" onclick="exportAsJSON()">BACKUP JSON</button>
         <button style="background:#2e7d32" onclick="exportHTML()">FULL BUNDLE</button>
     </div>
@@ -125,6 +113,7 @@
 <div id="main">
     <textarea id="codeEditor" spellcheck="false" oninput="onEditorInput()"></textarea>
     <div id="previewContainer" ondragover="event.preventDefault()" ondrop="dropCharacter(event)">
+        <div id="pauseOverlay">DURAKLATILDI</div>
         <iframe id="preview"></iframe>
         <div id="fpsCounter">FPS: 0</div>
         <div id="console">> VantixEngine Hazır.</div>
@@ -137,11 +126,13 @@
     const consoleBox = document.getElementById('console');
     const dCanvas = document.getElementById('drawingCanvas');
     const dCtx = dCanvas.getContext('2d');
+    const pauseOverlay = document.getElementById('pauseOverlay');
     
     let drawing = false;
     let autoRunTimeout;
+    let isPaused = false;
 
-    // --- TAB TUŞU DESTEĞİ ---
+    // TAB Desteği
     editor.addEventListener('keydown', function(e) {
         if (e.key === 'Tab') {
             e.preventDefault();
@@ -151,35 +142,51 @@
         }
     });
 
-    // --- MOTORU ÇALIŞTIRMA ---
-    function runEngine() {
-        const lang = document.getElementById('langSelect').value;
-        const code = editor.value;
-        
-        consoleBox.innerHTML = "> Motor başlatılıyor...";
-        
+    // MOTORU ÇALIŞTIRMA VE HTML OLUŞTURMA SİSTEMİ
+    function buildFinalHTML(code, lang, forExport = false) {
         const consoleScript = `
             <script>
                 window.onerror = (m, u, l) => { window.parent.postMessage({type: 'error', msg: m + ' (Satır: ' + l + ')'}, '*'); };
                 console.log = (...args) => { 
                     window.parent.postMessage({type: 'log', msg: args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ')}, '*'); 
                 };
+                // Duraklatma dinleyicisi
+                window.addEventListener('message', (e) => {
+                    if(e.data === 'pause') { window.isVantixPaused = true; }
+                    if(e.data === 'resume') { window.isVantixPaused = false; }
+                });
+                // RequestAnimationFrame Override (Durdurma için)
+                const _raf = window.requestAnimationFrame;
+                window.requestAnimationFrame = (cb) => {
+                    _raf((t) => { if(!window.isVantixPaused) cb(t); else window.requestAnimationFrame(cb); });
+                };
             <\/script>`;
 
-        let finalHTML = "";
-        const meta = '<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">';
+        const meta = '<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><style>body{margin:0;overflow:hidden;}</style>';
+        
+        let lib = "";
+        if (lang === "p5js") lib = '<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"><\/script>';
+        if (lang === "threejs") lib = '<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/script>';
+        if (lang === "python") lib = '<script src="https://cdnjs.cloudflare.com/ajax/libs/brython/3.10.5/brython.min.js"><\/script><script src="https://cdnjs.cloudflare.com/ajax/libs/brython/3.10.5/brython_stdlib.min.js"><\/script>';
 
-        if (lang === "html") {
-            finalHTML = meta + consoleScript + code;
-        } else if (lang === "p5js") {
-            finalHTML = `<html><head>${meta}${consoleScript}<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"><\/script></head><body><script>${code}<\/script></body></html>`;
-        } else if (lang === "threejs") {
-            finalHTML = `<html><head>${meta}${consoleScript}</head><body style="margin:0"><script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/script><script>${code}<\/script></body></html>`;
-        } else if (lang === "python") {
-            finalHTML = `<html><head>${meta}${consoleScript}<script src="https://cdnjs.cloudflare.com/ajax/libs/brython/3.10.5/brython.min.js"><\/script><script src="https://cdnjs.cloudflare.com/ajax/libs/brython/3.10.5/brython_stdlib.min.js"><\/script></head><body onload="brython()"><script type="text/python">${code}<\/script></body></html>`;
-        } else if (lang === "canvas") {
-            finalHTML = `<html><head>${meta}${consoleScript}</head><body style="margin:0; background:#000;"><canvas id="c"></canvas><script>const canvas=document.getElementById('c');const ctx=canvas.getContext('2d');canvas.width=window.innerWidth;canvas.height=window.innerHeight;${code}<\/script></body></html>`;
-        }
+        let bodyTag = lang === "python" ? '<body onload="brython()">' : '<body>';
+        let content = code;
+        if(lang === "python") content = `<script type="text/python">${code}<\/script>`;
+        else if(lang === "canvas") content = `<canvas id="c"></canvas><script>const canvas=document.getElementById('c');const ctx=canvas.getContext('2d');canvas.width=window.innerWidth;canvas.height=window.innerHeight;${code}<\/script>`;
+        else if(lang !== "html") content = `<script>${code}<\/script>`;
+
+        return `<html><head>${meta}${forExport ? '' : consoleScript}${lib}</head>${bodyTag}${content}</body></html>`;
+    }
+
+    function runEngine() {
+        isPaused = false;
+        document.getElementById('pauseBtn').innerText = "DURDUR";
+        pauseOverlay.style.display = "none";
+        preview.style.pointerEvents = "auto";
+        
+        const lang = document.getElementById('langSelect').value;
+        const code = editor.value;
+        const finalHTML = buildFinalHTML(code, lang, false);
 
         const frameDoc = preview.contentDocument || preview.contentWindow.document;
         frameDoc.open();
@@ -187,6 +194,44 @@
         frameDoc.close();
         
         localStorage.setItem('vantix_last_draft', JSON.stringify({code, lang}));
+    }
+
+    function togglePause() {
+        const btn = document.getElementById('pauseBtn');
+        if (!isPaused) {
+            preview.contentWindow.postMessage('pause', '*');
+            preview.style.pointerEvents = "none";
+            pauseOverlay.style.display = "flex";
+            btn.innerText = "DEVAM ET";
+            isPaused = true;
+            logToConsole("Motor duraklatıldı.", "info");
+        } else {
+            preview.contentWindow.postMessage('resume', '*');
+            preview.style.pointerEvents = "auto";
+            pauseOverlay.style.display = "none";
+            btn.innerText = "DURDUR";
+            isPaused = false;
+            logToConsole("Motor devam ediyor.", "info");
+        }
+    }
+
+    function exportHTML() {
+        const lang = document.getElementById('langSelect').value;
+        const code = editor.value;
+        const fullCode = buildFinalHTML(code, lang, true); // true = temiz export
+        const blob = new Blob([fullCode], {type: 'text/html'});
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'vantix_project.html';
+        a.click();
+    }
+
+    // --- Diğer Fonksiyonlar (Aynen Korundu) ---
+    function refreshEngine() {
+        const lang = document.getElementById('langSelect').value;
+        const code = editor.value;
+        localStorage.setItem('vantix_last_draft', JSON.stringify({code, lang}));
+        location.reload();
     }
 
     window.addEventListener('message', (e) => {
@@ -205,12 +250,6 @@
             clearTimeout(autoRunTimeout);
             autoRunTimeout = setTimeout(runEngine, 1000);
         }
-    }
-
-    function togglePause() {
-        const btn = document.getElementById('pauseBtn');
-        preview.style.pointerEvents = preview.style.pointerEvents === "none" ? "auto" : "none";
-        btn.innerText = preview.style.pointerEvents === "none" ? "DEVAM ET" : "DURDUR";
     }
 
     dCanvas.onmousedown = (e) => { drawing = true; paint(e); };
@@ -273,7 +312,7 @@
 
     function toggleDisplay(id) {
         const el = document.getElementById(id);
-        const panels = ['filePanel', 'assetPanel', 'drawPanel', 'characterPanel', 'exportPanel', 'readmePanel'];
+        const panels = ['filePanel', 'assetPanel', 'drawPanel', 'characterPanel', 'exportPanel'];
         panels.forEach(p => { if(p !== id) document.getElementById(p).style.display = 'none'; });
         el.style.display = el.style.display === 'block' ? 'none' : 'block';
     }
@@ -282,7 +321,6 @@
     function toggleAssetPanel() { toggleDisplay('assetPanel'); }
     function toggleExportPanel() { toggleDisplay('exportPanel'); }
     function toggleFilePanel() { toggleDisplay('filePanel'); renderFileList(); }
-    function toggleReadmePanel() { toggleDisplay('readmePanel'); }
 
     function addAsset() {
         const url = document.getElementById('assetUrl').value;
@@ -360,14 +398,6 @@
         requestAnimationFrame(updateFPS);
     }
     updateFPS();
-
-    function exportHTML() {
-        const blob = new Blob([editor.value], {type: 'text/html'});
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = 'vantix_game.html';
-        a.click();
-    }
 
     function exportAsJSON() {
         const data = { db: localStorage.getItem('vantix_db'), chars: localStorage.getItem('vantix_chars') };
